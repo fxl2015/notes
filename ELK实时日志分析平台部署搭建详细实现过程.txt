@@ -1,0 +1,212 @@
+http://www.linuxidc.com/Linux/2016-09/135137.htm
+http://www.mamicode.com/info-detail-1721560.html
+
+1、ELK平台介绍
+在搜索ELK资料的时候，发现这篇文章比较好，于是摘抄一小段：
+日志主要包括系统日志、应用程序日志和安全日志。系统运维和开发人员可以通过日志了解服务器软硬件信息、
+检查配置过程中的错误及错误发生的原因。经常分析日志可以了解服务器的负荷，性能安全性，从而及时采取措施纠正错误。
+通常，日志被分散的储存不同的设备上。如果你管理数十上百台服务器，你还在使用依次登录每台机器的传统方法查阅日志。
+这样是不是感觉很繁琐和效率低下。当务之急我们使用集中化的日志管理，例如：开源的syslog，将所有服务器上的日志收集汇总。
+集中化管理日志后，日志的统计和检索又成为一件比较麻烦的事情，一般我们使用grep、awk和wc等Linux命令能实现检索和统计，
+但是对于要求更高的查询、排序和统计等要求和庞大的机器数量依然使用这样的方法难免有点力不从心。
+开源实时日志分析ELK平台能够完美的解决我们上述的问题，ELK由ElasticSearch、Logstash和Kiabana三个开源工具组成。
+官方网站： https://www.elastic.co/product
+
+2、安装准备
+
+Elk平台环境
+
+系统                    版本
+
+服务器操作系统         CentOS release 6.7 (Final)
+
+ElasticSearch          2.3.4
+
+Logstash               2.3.4
+
+Kibana                 4.5.3
+
+Jdk                    1.8
+ 
+注：由于Logstash的运行依赖于Java环境，而Logstash1.5以上版本不低于java 1.7，
+因此推荐使用最新版本的Java。因为我们只需要Java的运行环境，所以可以只安装JRE，
+不过这里我依然使用JDK，请自行搜索安装，我这里准备使用1.8
+
+3、下载
+
+wget https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.3.4/elasticsearch-2.3.4.tar.gz
+wget https://download.elastic.co/logstash/logstash/logstash-2.3.4.tar.gz
+wget https://download.elastic.co/kibana/kibana/kibana-4.5.3-linux-x64.tar.gz
+wget http://download.oracle.com/otn-pub/java/jdk/8u45-b14/jdk-8u45-linux-x64.tar.gz
+
+4、安装调试
+
+4.1、安装jdk
+
+使用root安装jdk
+mkdir -p /usr/lib/jvm
+tar -xvf  jdk-8u45-linux-x64.tar.gz -C /usr/lib/jvm
+
+# vim /etc/profile 配置系统参数
+export JAVA_HOME=/usr/lib/jvm/jdk1.8.0_45
+export JRE_HOME=${JAVA_HOME}/jre
+export CLASSPATH=.:${JAVA_HOME}/lib:${JRE_HOME}/lib
+export PATH=${JAVA_HOME}/bin:$PATH
+
+sudo update-alternatives --install /usr/bin/java java /usr/lib/jvm/jdk1.8.0_45/bin/java 300
+sudo update-alternatives --install /usr/bin/javac javac /usr/lib/jvm/jdk1.8.0_45/bin/javac 300
+
+4.2、安装elasticsearch
+使用elk账号安装elasticearch：
+
+# 解压缩安装
+
+useradd elk
+su - elk
+tar -xvf elasticsearch-2.3.4.tar.gz
+cd elasticsearch-2.3.4
+
+# 安装Head插件
+
+./bin/plugin install mobz/elasticsearch-head
+ls plugins/
+# ls能看到head文件即可表示ok了。
+[elk@hch_test_dbm1_121_62 elasticsearch-2.3.4]$ ll plugins/
+总用量 4
+drwxrwxr-x. 5 elk elk 4096 8月  2 17:26 head
+[elk@hch_test_dbm1_121_62 elasticsearch-2.3.4]$
+
+编译es的配置文件:
+cluster.name: es_cluster
+node.name: node0
+path.data: /usr/local/fxl/elk/el_data
+path.logs: /usr/local/fxl/elk/el_log
+network.host: 192.168.56.11
+network.port: 9200
+
+启动es：
+
+./bin/elasticsearch &
+
+
+4.3、安装logstash
+logstash其实它就是一个 收集器 而已，我们需要为它指定Input和Output（当然Input和Output可以为多个）。
+由于我们需要把Java代码中Log4j的日志输出到ElasticSearch中，因此这里的Input就是Log4j，而Output就是ElasticSearch。
+
+安装配置：
+
+# 解压缩安装
+tar -xvf logstash-2.3.4.tar.gz
+cd logstash-2.3.4
+# 将配置文件放置在config文件夹下面
+mkdir config
+vim config/log4j_to_es.conf
+
+input {
+    log4j {
+        host => "192.168.56.11"
+        port => 4560
+    }
+}
+
+output {
+    stdout {
+      codec => rubydebug
+    }
+    elasticsearch{
+        hosts => ["192.168.56.11:9200"]
+        index => "log4j-%{+YYYY.MM.dd}"
+        document_type => "log4j_type"
+    }
+}
+
+
+4.4 从Java工程中导出log4J日志到Logstash
+
+在resource目录下新建log4j.properties,加入以下配置:
+
+### 设置###
+log4j.rootLogger = debug,stdout,D,E,logstash
+
+### 输出信息到控制抬 ###
+log4j.appender.stdout = org.apache.log4j.ConsoleAppender
+log4j.appender.stdout.Target = System.out
+log4j.appender.stdout.layout = org.apache.log4j.PatternLayout
+log4j.appender.stdout.layout.ConversionPattern = [%-5p] %d{yyyy-MM-dd HH:mm:ss,SSS} method:%l%n%m%n
+
+### 输出DEBUG 级别以上的日志到=/Users/bee/Documents/elk/log4j/debug.log###
+log4j.appender.D = org.apache.log4j.DailyRollingFileAppender
+log4j.appender.D.File = /Users/bee/Documents/elk/log4j/debug.log
+log4j.appender.D.Append = true
+log4j.appender.D.Threshold = DEBUG 
+log4j.appender.D.layout = org.apache.log4j.PatternLayout
+log4j.appender.D.layout.ConversionPattern = %-d{yyyy-MM-dd HH:mm:ss}  [ %t:%r ] - [ %p ]  %m%n
+
+### 输出ERROR 级别以上的日志到=/Users/bee/Documents/elk/log4j/error.log  ###
+log4j.appender.E = org.apache.log4j.DailyRollingFileAppender
+log4j.appender.E.File =/Users/bee/Documents/elk/log4j/error.log 
+log4j.appender.E.Append = true
+log4j.appender.E.Threshold = ERROR 
+log4j.appender.E.layout = org.apache.log4j.PatternLayout
+log4j.appender.E.layout.ConversionPattern = %-d{yyyy-MM-dd HH:mm:ss}  [ %t:%r ] - [ %p ]  %m%n
+
+#输出日志到logstash
+log4j.appender.logstash=org.apache.log4j.net.SocketAppender
+log4j.appender.logstash.RemoteHost=127.0.0.1
+log4j.appender.logstash.port=4560
+log4j.appender.logstash.ReconnectionDelay=60000
+log4j.appender.logstash.LocationInfo=true
+配置文件中，把日志输出了四份：
+
+第一份输出到控制台
+第二份把DEBUG 级别以上的日志到文件
+第三份把输出ERROR 级别以上的日志到文件
+第四份输出到logstash
+在java目录下添加Log4jTest.java，内容如下:
+
+import org.apache.log4j.Logger;
+/**
+ * Created by bee on 17/3/6.
+ */
+public class Log4jTest {
+    public static final Logger logger=Logger.getLogger(Log4jTest.class);
+
+    public static void main(String[] args) {
+        logger.debug("This is a debug message!");
+        logger.info("This is info message!");
+        logger.warn("This is a warn message!");
+        logger.error("This is error message!");
+
+        try{
+           System.out.println(5/0);
+        }catch(Exception e){
+            logger.error(e);
+        }
+    }
+}
+
+如果你已经启动了Elasticsearch，IP和端口都是通畅的，配置文件无误，启动成功后的界面如下: 
+
+运行Log4jTest.java，在终端中可以看到以下输出:
+
+在http://192.168.56.11:9200/_plugin/head/中查看导入的日志: 
+
+
+
+4.6、安装kinana
+
+# 解压缩安装
+tar -xvf kibana-4.5.3-linux-x64.tar.gz
+cd kibana-4.5.3-linux-x64
+
+# 配置   修改配置
+vim config/kibana.yml  
+server.port: 5601
+server.host: "192.168.121.62"
+elasticsearch.url:  “http://192.168.121.62:9200”
+kibana.index: ".kibana"
+
+# 启动kibana
+./bin/kibana
+
+
