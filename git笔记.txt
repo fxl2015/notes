@@ -143,3 +143,20 @@ $ git commit -m "clear"
 $ git push origin master
 
 
+
+$ git push origin master
+Username for 'https://github.com': fxl2015
+To https://github.com/fxl2015/notes.git
+ ! [rejected]        master -> master (fetch first)
+error: failed to push some refs to 'https://github.com/fxl2015/notes.git'
+hint: Updates were rejected because the remote contains work that you do
+hint: not have locally. This is usually caused by another repository pushing
+hint: to the same ref. You may want to first integrate the remote changes
+hint: (e.g., 'git pull ...') before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+问题解决：
+本地没有update到最新版本的项目，本地直接push所以会出错。
+git pull origin 更新项目
+
+或者 
+git push -f origin master
