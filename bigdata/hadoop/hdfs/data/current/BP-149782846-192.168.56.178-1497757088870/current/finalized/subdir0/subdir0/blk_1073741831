@@ -1,0 +1,1 @@
+KjobId=job_1497757920083_0002,submitTime=1497758308712,launchTime=1497758327815,firstMapTaskLaunchTime=0,firstReduceTaskLaunchTime=1497758331790,finishTime=1497758340956,resourcesPerMap=0,resourcesPerReduce=1024,numMaps=0,numReduces=1,user=root,queue=default,status=SUCCEEDED,mapSlotSeconds=0,reduceSlotSeconds=8,jobName=grep-search

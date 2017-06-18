@@ -1,0 +1,1 @@
+XjobId=job_1497757920083_0003,submitTime=1497758344506,launchTime=1497758362364,firstMapTaskLaunchTime=1497758365133,firstReduceTaskLaunchTime=1497758376703,finishTime=1497758385776,resourcesPerMap=1024,resourcesPerReduce=1024,numMaps=1,numReduces=1,user=root,queue=default,status=SUCCEEDED,mapSlotSeconds=8,reduceSlotSeconds=8,jobName=grep-sort
